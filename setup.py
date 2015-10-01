@@ -1,20 +1,22 @@
 
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='django-classy-settings',
-    version='0.2.0',
+    version='1.1.4',
     description='Simple class-based settings for Django',
     author='Curtis Maloney',
     author_email='curtis@tinbrain.net',
-    packages=['cbs',],
+    packages=[
+        'cbs',
+        'cbs.base',
+    ],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Framework :: Django',
         'Intended Audience :: Developers',
     ],
-    requires=[
-        'Django (>=1.6)',
-        'six (>=1.7.3)',
+    install_requires=[
+        'Django>=1.6',
     ],
 )

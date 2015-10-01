@@ -1,9 +1,15 @@
 
 from functools import partial
 import importlib
-import inspect
 import os
-import six
+
+from django.utils import six
+
+from .base import GlobalSettings  # noqa
+from .utils import as_bool
+
+
+DEFAULT_ENV_PREFIX = ''
 
 
 class env(object):
@@ -28,16 +34,24 @@ class env(object):
         ...
 
     ``key`` and ``prefix`` can be used together.
+
+    You can pass a type caster / validator:
+
+    @env(type=int)
+    def SETTING(self):
     '''
     def __new__(cls, *args, **kwargs):
         if not args:
             return partial(env, **kwargs)
         return object.__new__(cls)
 
-    def __init__(self, getter, key=None, prefix=None):
+    def __init__(self, getter, key=None, type=None, prefix=None):
         self.getter = getter
+        self.type = type
         key = key or getter.__name__
-        self.key = key if prefix is None else ''.join([prefix, key])
+        if prefix is None:
+            prefix = DEFAULT_ENV_PREFIX
+        self.key = ''.join([prefix, key])
 
     def __get__(self, obj, type=None):
         if obj is None:
@@ -45,9 +59,21 @@ class env(object):
         try:
             value = os.environ[self.key]
         except KeyError:
-            value = self.getter()
+            value = self.getter(obj)
+        else:
+            if self.type:
+                value = self.type(value)
         obj.__dict__[self.getter.__name__] = value
         return value
+
+
+class envbool(env):
+    '''
+    A special case of env that returns a boolean.
+    '''
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('type', as_bool)
+        super(envbool, self).__init__(*args, **kwargs)
 
 
 def apply(name, to):
@@ -69,13 +95,16 @@ def apply(name, to):
     '''
     if isinstance(name, six.string_types):
         if '.' in name:
-            module, name = name.rsplit('.')
+            module, obj_name = name.rsplit('.', 1)
             module = importlib.import_module(module)
-            obj = getattr(module, name)
+            obj = getattr(module, obj_name)
         else:
             obj = to.get(name)
     else:
         obj = name
+
+    if obj is None:
+        raise ValueError('Could not find settings class: %r', name)
 
     settings = obj()
 
@@ -85,87 +114,14 @@ def apply(name, to):
         return value
 
     to.update({
-        key: resolve_callable(getattr(settings.obj))
+        key: resolve_callable(getattr(settings, key))
         for key in dir(settings)
-        if key == key.upper()
+        if key.isupper()
     })
 
 
-class BaseSettings(object):
-    '''
-    A standard Django 1.6 setting
+from django import VERSION
 
-    You must sub-class this and define PROJECT_NAME
-    '''
+base = importlib.import_module('cbs.base.django{}{}'.format(*VERSION[:2]))
 
-    DEBUG = True
-
-    @property
-    def BASE_DIR(self):
-        return os.path.dirname(
-            os.path.dirname(
-                os.path.abspath(inspect.getfile(self.__class__))
-            )
-        )
-
-    @property
-    def TEMPLATE_DEBUG(self):
-        return self.DEBUG
-
-    ALLOWED_HOSTS = []
-
-    INSTALLED_APPS = (
-        'django.contrib.admin',
-        'django.contrib.auth',
-        'django.contrib.contenttypes',
-        'django.contrib.sessions',
-        'django.contrib.messages',
-        'django.contrib.staticfiles',
-    )
-
-    MIDDLEWARE_CLASSES = (
-        'django.contrib.sessions.middleware.SessionMiddleware',
-        'django.middleware.common.CommonMiddleware',
-        'django.middleware.csrf.CsrfViewMiddleware',
-        'django.contrib.auth.middleware.AuthenticationMiddleware',
-        'django.contrib.messages.middleware.MessageMiddleware',
-        'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    )
-
-    @property
-    def ROOT_URLCONF(self):
-        return '{}.urls'.format(self.PROJECT_NAME)
-
-    @property
-    def WSGI_APPLICATION(self):
-        return '{}.wsgi.application'.format(self.PROJECT_NAME)
-
-    # Database
-    # https://docs.djangoproject.com/en/1.6/ref/settings/#databases
-
-    @property
-    def DATABASES(self):
-        return {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': os.path.join(self.BASE_DIR, 'db.sqlite3'),
-            }
-        }
-
-    # Internationalization
-    # https://docs.djangoproject.com/en/1.6/topics/i18n/
-
-    LANGUAGE_CODE = 'en-us'
-
-    TIME_ZONE = 'UTC'
-
-    USE_I18N = True
-
-    USE_L10N = True
-
-    USE_TZ = True
-
-    # Static files (CSS, JavaScript, Images)
-    # https://docs.djangoproject.com/en/1.6/howto/static-files/
-
-    STATIC_URL = '/static/'
+BaseSettings = getattr(base, 'Base{}{}Settings'.format(*VERSION[:2]))
