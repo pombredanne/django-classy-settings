@@ -1,6 +1,71 @@
 Change Log
 ==========
 
+2.0.1 (2016-04-16)
+------------------
+
+Features Added:
+
+- You can now have an env var that _must_ have an env set.
+- New `as_list` and `as_tuple` utility functions for casting values
+  [Thanks MarkusH]
+
+2.0.0 (2016-02-08)
+------------------
+
+The 'softer-touch' branch.
+
+As of 2.0, `django-classy-settings` is advocating a "minimal impact" approach.
+
+As such, it's recommended you retain the default ``settings.py`` as provided by
+Django, and only move to a class those settings which change based on
+environment.
+
+Deprecation:
+
+- Remove ``cbs.base``
+- No longer import ``BaseSettings`` in ``cbs``
+- Purged ``cbs.base``
+- Moved ``cbs.base.GlobalSettings`` into ``cbs``
+
+1.1.8 (2015-12-??)
+------------------
+
+Features Added:
+
+- Use `inspect.ismethod` instead of just `callable` for detecting methods on
+  settings classes.
+
+Deprecation:
+
+- Removed ill concieved `@cbs.returns_callable`.  Document a solution instead.
+
+1.1.7 (2015-12-02)
+------------------
+
+Features Added:
+
+- Added `@cbs.returns_callable` for settings that return callables
+
+1.1.6 (2015-11-29)
+------------------
+
+Features Added:
+
+- Tox config was overhauled, and hooked into "setup.py test" (Thanks TC)
+
+Bugs Fixed:
+
+- Fix case where @env(...) would return a partial on env, instead of the
+  sub-class, which broke envbool (Thanks TC)
+
+1.1.5 (2015-11-05)
+------------------
+
+Features Added:
+
+- Added Django 1.9 base settings
+
 1.1.4 (2015-09-25)
 ------------------
 

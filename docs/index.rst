@@ -25,23 +25,20 @@ Contents
    :maxdepth: 2
 
    tips
-   simple
    api
    changelog
 
 Quickstart
 ----------
 
-Replace your default ``settings.py``:
+In your default ``settings.py``, add a `BaseSettings` class:
 
 .. code-block:: python
 
     import cbs
 
-    class BaseSettings(cbs.BaseSettings):
-        PROJECT_NAME = 'myproject'
-
-You must provide the project name you passed to 'startproject'.
+    class BaseSettings():
+        DEBUG = True
 
 Derive testing/staging/production settings:
 
@@ -56,8 +53,10 @@ Derive testing/staging/production settings:
     class ProductionSettings(StagingSettings):
         DEBUG = False
 
-Any upper-case properties will be included in your settings.  Any methods which
-match this will be called to yield their values.
+Define on these classes settings that you want to change based on selection. 
+Any properties that look like settings (where name.is_uppper() is True) will be
+included in your settings.  Any methods which match this will be called to
+yield their values.
 
 Finally, apply the setting you want:
 
@@ -67,6 +66,9 @@ Finally, apply the setting you want:
     MODE = os.environ.get('DJANGO_MODE', 'Local')
     cbs.apply('{}Settings'.format(MODE.title()), globals())
 
+All globaly declared settings will continue to work as expected, unless the
+same name exists on the applied settings class.
+
 
 Helpers
 -------
@@ -75,7 +77,7 @@ We all like moving settings into the ENV, right?  So, here's a helper.
 
 .. code-block:: python
 
-    class Settings(BaseSettings):
+    class Settings:
 
         # Will return 'SECRET' from env vars, or the default if not set.
         @cbs.env
@@ -107,19 +109,6 @@ You can override the default prefix of '' by setting ``cbs.DEFAULT_ENV_PREFIX``
             return 'dummy-secret'
 
 
-The recommended pattern for env settings that are required is to raise
-``django.core.exceptions.ImproperlyConfigured``:
-
-.. code-block:: python
-
-   import cbs
-
-   class Settings(BaseSettings):
-       @cbs.env
-       def SECRET(self):
-           raise ImproperlyConfigured('You must specify SECRET in env')
-
-
 Next, because ``cbs.env`` is also a decorator factory, you can create
 decorators for each prefix you need, if you have many.
 
@@ -139,8 +128,8 @@ decorators for each prefix you need, if you have many.
 
 
 Also, you can pass a type casting callable to convert the string to whatever
-you need, as well as affect validation.  Built in is ``as_bool`` to
-intelligently cast value to bool.
+you need, as well as affect validation. Built in are ``as_bool``, ``as_list``,
+and ``as_tuple`` to intelligently cast values to bools, lists, and tuples.
 
 .. code-block:: python
 
@@ -153,8 +142,8 @@ intelligently cast value to bool.
 As an additional helper, there is ``cbs.envbool`` which subclasses ``cbs.env``
 and sets `type` to ``as_bool``.
 
-Once the value is stripped and lower-cased, ``as_bool`` tests it against two
-lists:
+``as_bool`` will strip white spaces and lower-case the given value, testing
+it against two lists:
 
 True::
 
@@ -166,6 +155,23 @@ False::
 
 Any other value will raise a ValueError.
 
+The ``as_list`` and ``as_tuple`` converters will take the input string and
+split it at ``,``. Additionally, these functions will strip leading and
+trailing white spaces from each item.
+
+Finally, you can define an env setting that _must_ have an env var set, and has
+no default.
+
+.. code-block:: python
+
+   class BaseSettings(object):
+        REQUIRED = cbs.env(None, key='REQUIRED')
+
+.. note:: You _must_ define ``key``, as there is no way otherwise for the
+    descriptor to know its name.
+
+This will raise a `RuntimeError` if the key `REQUIRED` is not set in the
+environ.
 
 Feature Toggles
 ---------------
@@ -197,23 +203,14 @@ from os.environ['TOGGLE_{key}'] if it exists, passed through ``as_bool``, or
 the value if it is not set.
 
 
-Base classes
-------------
-
-The `BaseSettings` class is automatically chosen based on the installed version of Django.  You can override this by explicitly choosing the verison base:
-
-- cbs.base.django16.Base16Settings
-- cbs.base.django17.Base17Settings
-- cbs.base.django18.Base18Settings
-
+Global Defaults
+---------------
 
 Also included is `GlobalSettings`, which pulls in all the default "global" settings from the currently installed version of Django.  This makes it simpler to extend the default settings not included when you run `django-admin startproject`.
 
-.. note::  This class should always be _last_ in your inheritance list.
+.. code-block:: python
 
-   .. code-block:: python
+   import cbs
 
-      import cbs
-
-      class Settings(cbs.BaseSettings, cbs.GlobalSettings):
-          ...
+   class Settings(cbs.GlobalSettings):
+       ...

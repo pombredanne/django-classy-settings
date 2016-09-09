@@ -3,7 +3,7 @@ import unittest
 import cbs
 
 
-class MySettings(cbs.BaseSettings, cbs.GlobalSettings):
+class MySettings(cbs.GlobalSettings):
     PROJECT_NAME = 'tests'
 
     @property
@@ -17,4 +17,4 @@ class GlobalSettingsTest(unittest.TestCase):
         g = {}
         cbs.apply(MySettings, g)
 
-        self.assertTrue(len(g['TEMPLATE_LOADERS']), 3) 
+        self.assertTrue(len(g['TEMPLATE_LOADERS']), 3)

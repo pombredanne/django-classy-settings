@@ -1,11 +1,11 @@
 
 from functools import partial
 import importlib
+from inspect import ismethod
 import os
 
 from django.utils import six
 
-from .base import GlobalSettings  # noqa
 from .utils import as_bool
 
 
@@ -42,7 +42,7 @@ class env(object):
     '''
     def __new__(cls, *args, **kwargs):
         if not args:
-            return partial(env, **kwargs)
+            return partial(cls, **kwargs)
         return object.__new__(cls)
 
     def __init__(self, getter, key=None, type=None, prefix=None):
@@ -59,6 +59,10 @@ class env(object):
         try:
             value = os.environ[self.key]
         except KeyError:
+            if self.getter is None:
+                raise RuntimeError(
+                    'You must set the %s environment variable.' % self.key
+                )
             value = self.getter(obj)
         else:
             if self.type:
@@ -109,7 +113,7 @@ def apply(name, to):
     settings = obj()
 
     def resolve_callable(value):
-        if callable(value):
+        if ismethod(value):
             return value()
         return value
 
@@ -120,8 +124,11 @@ def apply(name, to):
     })
 
 
-from django import VERSION
+class GlobalSettings(object):
+    '''
+    A mixin to help access Django's default global settings.
+    '''
 
-base = importlib.import_module('cbs.base.django{}{}'.format(*VERSION[:2]))
-
-BaseSettings = getattr(base, 'Base{}{}Settings'.format(*VERSION[:2]))
+    def __getattr__(self, key):
+        from django.conf import global_settings
+        return getattr(global_settings, key)
